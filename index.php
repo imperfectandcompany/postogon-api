@@ -46,6 +46,20 @@ if ($_SERVER['REQUEST_METHOD'] == "GET")
 }
 else if ($_SERVER['REQUEST_METHOD'] == "POST")
 {
+
+    if ($_GET['url'] == "logout")
+    {    
+        $postBody = file_get_contents("php://input");
+        $postBody = json_decode($postBody);
+        $emailoruser = strtolower($postBody->username);
+        $password = $postBody->password;
+            //check if token exists
+            if($db->query('SELECT token FROM login_tokens WHERE token=:token', array(':token'=>sha1($_GET['token'])))){
+           
+            }        
+    }
+
+
     if ($_GET['url'] == "auth")
     {    
         $postBody = file_get_contents("php://input");
