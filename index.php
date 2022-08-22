@@ -2,6 +2,8 @@
 require ('db.php');
 require ('dbconf.php');
 $db = new db($domain, $table, $user, $pass);
+include ("./class.user.php");
+include ("./class.posts.php");
 
 header('Access-Control-Allow-Origin: *');
 header("Access-Control-Allow-Methods: HEAD, GET, POST, PUT, PATCH, DELETE, OPTIONS");
@@ -61,57 +63,69 @@ if ($_SERVER['REQUEST_METHOD'] == "GET")
     }
     else if ($_GET['url'] == "user")
     {
-        if (isset($_GET['username'])){
+        if (isset($_GET['username']))
+        {
             //check if user exists
-            if ($db->query('SELECT username FROM users WHERE username=:username', array(':username' =>$_GET['username']))[0]['username'])
+            if ($db->query('SELECT username FROM users WHERE username=:username', array(
+                ':username' => $_GET['username']
+            )) [0]['username'])
             {
                 echo '{ Username: "True" }';
-            } else {
-                echo '{ Error: "Invalid Username" }';
-                http_response_code(400);
-                die();
-			}
-		}
-        if (isset($_GET['contact'])){
-        if (isset($_GET['token']))
-        {
-            $token = $_COOKIE['POSTOGON_ID'];
-            //check if token exists and grab user's id
-            if ($user_id = $db->query('SELECT user_id FROM login_tokens WHERE token=:token', array(
-                ':token' => sha1($_GET['token'])
-            )) [0]['user_id'])
-            {
-                $user_id = $db->query('SELECT user_id FROM login_tokens WHERE token=:token', array(
-                    ':token' => sha1($_GET['token'])
-                )) [0]['user_id'];
             }
             else
             {
-                echo '{ Error: "Invalid Token" }';
-                http_response_code(400);
+                echo '{ Error: "Invalid Username" }';
+                http_response_code(403);
                 die();
             }
+        }
+        if (isset($_GET['contact']))
+        {
+            if (isset($_GET['token']))
+            {
+                $token = $_COOKIE['POSTOGON_ID'];
+                //check if token exists and grab user's id
+                if ($user_id = $db->query('SELECT user_id FROM login_tokens WHERE token=:token', array(
+                    ':token' => sha1($_GET['token'])
+                )) [0]['user_id'])
+                {
+                    $user_id = $db->query('SELECT user_id FROM login_tokens WHERE token=:token', array(
+                        ':token' => sha1($_GET['token'])
+                    )) [0]['user_id'];
+                }
+                else
+                {
+                    echo '{ Error: "Invalid Token" }';
+                    http_response_code(400);
+                    die();
+                }
                 //get userid
                 $contact = $db->query('SELECT id FROM users WHERE username=:username', array(
-                    ':username' => $_GET['contact']))[0]['id'];			
-		if($db->query('SELECT ID FROM contacts WHERE user_id=:userid AND contact_id=:contactid', array(':userid' => $user_id,':contactid' => $contact))) {
-                echo '{ Success: "User is a contact" }';
-                http_response_code(200);
-			}
-			else {
-                echo '{ Error: "User is not a contact" }';
-                http_response_code(400);
-                die();
-			}
-		} else {
+                    ':username' => $_GET['contact']
+                )) [0]['id'];
+                if ($db->query('SELECT ID FROM contacts WHERE user_id=:userid AND contact_id=:contactid', array(
+                    ':userid' => $user_id,
+                    ':contactid' => $contact
+                )))
+                {
+                    echo '{ Success: "User is a contact" }';
+                    http_response_code(200);
+                }
+                else
+                {
+                    echo '{ Error: "User is not a contact" }';
+                    http_response_code(400);
+                    die();
+                }
+            }
+            else
+            {
                 echo '{ Error: "You must provide a token" }';
                 http_response_code(400);
                 die();
-		}			
-		}
+            }
+        }
 
-
-		
     }
     else if ($_GET['url'] == "posts")
     {
@@ -145,11 +159,16 @@ AND follower_id = ' . $user_id . ' OR posts.user_id = ' . $user_id . ' AND users
                     $response .= "[";
                     foreach ($feedoneposts as $post)
                     {
+						$comments = posts::countPostComments($post['id'], $db);	
+						$isLiked = posts::isLiked($post['id'], $user_id, $db);					
                         $response .= "{";
                         $response .= '"PostId": ' . $post['id'] . ",";
                         $response .= '"PostBody": "' . $post['body'] . "\",";
                         $response .= '"PostedBy": "' . $post['username'] . "\",";
-                        $response .= '"Likes": ' . $post['likes'] . "";
+                        $response .= '"PostedOn": ' . $post['posted_on'] . ",";
+						$response .= '"Comments": ' . $comments . ",";					
+                        $response .= '"Likes": ' . $post['likes'] . ",";		
+                        $response .= '"IsLiked": ' . $isLiked . "";						
                         $response .= "},";
                     }
                     $response = substr($response, 0, strlen($response) - 1);
@@ -176,11 +195,14 @@ AND contacts.user_id = ' . $user_id . ' OR posts.user_id = ' . $user_id . ' AND 
                     $response .= "[";
                     foreach ($feedtwoposts as $post)
                     {
+						$comments = posts::countPostComments($post['id'], $db);
                         $response .= "{";
                         $response .= '"PostId": ' . $post['id'] . ",";
                         $response .= '"PostBody": "' . $post['body'] . "\",";
                         $response .= '"PostedBy": "' . $post['username'] . "\",";
-                        $response .= '"Likes": ' . $post['likes'] . "";
+                        $response .= '"PostedOn": ' . $post['posted_on'] . ",";
+						$response .= '"Comments": ' . $comments . ",";
+                        $response .= '"Likes": ' . $post['likes'] . "";						
                         $response .= "},";
                     }
                     $response = substr($response, 0, strlen($response) - 1);
@@ -207,47 +229,55 @@ AND contacts.user_id = ' . $user_id . ' OR posts.user_id = ' . $user_id . ' AND 
                 echo '{ Error: "Feed required!" }';
             }
         }
-		else if(isset($_GET['id'])) {
-	if($db->query('SELECT * FROM posts WHERE id=:id AND to_whom = 2', array(':id'=>$_GET['id']))){
-		$singlePost = $db->query('SELECT * FROM posts WHERE id=:id AND to_whom = 2', array(':id'=>$_GET['id']));
-                    $response .= "[";
-                    foreach ($singlePost as $post)
-                    {
-                        $response .= "{";
-                        $response .= '"PostId": ' . $post['id'] . ",";
-                        $response .= '"PostBody": "' . $post['body'] . "\",";
-						//get username
-						$username = $db->query('SELECT username FROM users WHERE id=:id', array(
-							':id' => $post['user_id']
-						)) [0]['username'];
-                        $response .= '"PostedBy": "' . $username . "\",";
-                        $response .= '"Likes": ' . $post['likes'] . "";
-                        $response .= "},";
-                    }
-                    $response = substr($response, 0, strlen($response) - 1);
-                    $response .= "]";
-                    function parse($text)
-                    {
-                        // Damn pesky carriage returns...
-                        $text = str_replace("\r\n", "\n", $text);
-                        $text = str_replace("\r", "\n", $text);
+        else if (isset($_GET['id']))
+        {
+            if ($db->query('SELECT * FROM posts WHERE id=:id AND to_whom = 1', array(
+                ':id' => $_GET['id']
+            )))
+            {
+                $singlePost = $db->query('SELECT * FROM posts WHERE id=:id AND to_whom = 1', array(
+                    ':id' => $_GET['id']
+                ));
+                $response .= "[";
+                foreach ($singlePost as $post)
+                {
+                    $response .= "{";
+                    $response .= '"PostId": ' . $post['id'] . ",";
+                    $response .= '"PostBody": "' . $post['body'] . "\",";
+                    //get username
+                    $username = $db->query('SELECT username FROM users WHERE id=:id', array(
+                        ':id' => $post['user_id']
+                    )) [0]['username'];
+                    $response .= '"PostedBy": "' . $username . "\",";
+                    $response .= '"Likes": ' . $post['likes'] . "";
+                    $response .= "},";
+                }
+                $response = substr($response, 0, strlen($response) - 1);
+                $response .= "]";
+                function parse($text)
+                {
+                    // Damn pesky carriage returns...
+                    $text = str_replace("\r\n", "\n", $text);
+                    $text = str_replace("\r", "\n", $text);
 
-                        // JSON requires new line characters be escaped
-                        $text = str_replace("\n", "\\n", $text);
-                        return $text;
-                    }
-                    echo parse($response);
-	} else{
-            echo '{ Error: "Either Post is private or does not exist" }';
-            http_response_code(400);
-			die();
-	}
-		}
+                    // JSON requires new line characters be escaped
+                    $text = str_replace("\n", "\\n", $text);
+                    return $text;
+                }
+                echo parse($response);
+            }
+            else
+            {
+                echo '{ Error: "Either Post is private or does not exist" }';
+                http_response_code(400);
+                die();
+            }
+        }
         else
         {
             echo '{ Error: "Malformed request" }';
             http_response_code(400);
-			die();
+            die();
         }
 
     }
@@ -260,9 +290,13 @@ AND contacts.user_id = ' . $user_id . ' OR posts.user_id = ' . $user_id . ' AND 
             {
                 if ($_GET['feed'] == "public")
                 {
-					//grab user id
-                $user_id = $db->query('SELECT id FROM users WHERE username=:username', array(':username' =>$_GET['username']))[0]['id'];
-                    $publicprofileposts = $db->query('SELECT * FROM posts WHERE user_id=:userid AND to_whom = 1', array(':userid'=>$user_id));
+                    //grab user id
+                    $user_id = $db->query('SELECT id FROM users WHERE username=:username', array(
+                        ':username' => $_GET['username']
+                    )) [0]['id'];
+                    $publicprofileposts = $db->query('SELECT * FROM posts WHERE user_id=:userid AND to_whom = 1', array(
+                        ':userid' => $user_id
+                    ));
                     $response .= "[";
                     foreach ($publicprofileposts as $post)
                     {
@@ -289,9 +323,13 @@ AND contacts.user_id = ' . $user_id . ' OR posts.user_id = ' . $user_id . ' AND 
                 }
                 elseif ($_GET['feed'] == "private")
                 {
-					//grab user id
-                $user_id = $db->query('SELECT id FROM users WHERE username=:username', array(':username' =>$_GET['username']))[0]['id'];
-                    $publicprofileposts = $db->query('SELECT * FROM posts WHERE user_id=:userid AND to_whom = 2', array(':userid'=>$user_id));
+                    //grab user id
+                    $user_id = $db->query('SELECT id FROM users WHERE username=:username', array(
+                        ':username' => $_GET['username']
+                    )) [0]['id'];
+                    $publicprofileposts = $db->query('SELECT * FROM posts WHERE user_id=:userid AND to_whom = 2', array(
+                        ':userid' => $user_id
+                    ));
                     $response .= "[";
                     foreach ($publicprofileposts as $post)
                     {
@@ -315,7 +353,7 @@ AND contacts.user_id = ' . $user_id . ' OR posts.user_id = ' . $user_id . ' AND 
                         return $text;
                     }
                     echo parse($response);
-                }				
+                }
                 else
                 {
                     echo '{ Error: "Not a valid feed!" }';
@@ -510,6 +548,143 @@ else if ($_SERVER['REQUEST_METHOD'] == "POST")
             }
         }
     }
+
+    else if ($_GET['url'] == "post")
+    {
+        //get postbody
+        $postBody = file_get_contents("php://input");
+        $postBody = json_decode($postBody);
+        //assign values
+        $body = strtolower($postBody->body);
+        $token = strtolower($postBody->token);
+        //get userid if it exists
+        $userid = user::isLoggedIn($token, $db);
+        $to_whom = strtolower($postBody->to_whom);
+        //check if user is logged in
+        if ($userid)
+        {
+            //check if the postbody length is greater than 180 and also less than one
+            if (strlen($body) < 180 && strlen($body) > 1)
+            {
+                $db->query('INSERT INTO posts (body, user_id, to_whom, likes, posted_on) VALUES (:body, :userid, :towhom, 0,  UNIX_TIMESTAMP())', array(
+                    ':body' => $body,
+                    ':userid' => $userid,
+                    ':towhom' => $to_whom
+                ));
+                echo '{ "Success": "Post created successfully" }';
+                http_response_code(201);
+            }
+            else
+            {
+                echo '{ "Error": "Text is longer than 180 characters" }';
+                http_response_code(400);
+                die();
+            }
+
+        } else {
+                echo '{ "Error": "Token could not be authorized as a user!" }';
+                http_response_code(401);
+                die();
+		}
+
+    }
+	
+    else if ($_GET['url'] == "updatepostlike")
+    {
+        //get postbody
+        $postBody = file_get_contents("php://input");
+        $postBody = json_decode($postBody);
+        //assign values
+        $postId = strtolower($postBody->postId);
+
+		$isLiked = strtolower($postBody->isLiked);
+        $token = strtolower($postBody->token);
+        //get userid if it exists
+        $userid = user::isLoggedIn($token, $db);
+        //check if user is logged in
+        if ($userid)
+        {
+			switch($isLiked){
+			case true:
+         //check if the post is liked
+if($db->query('SELECT user_id FROM post_likes WHERE post_id=:postid AND user_id=:userid', array(':postid'=>$postId,':userid'=>$userid))){
+                $db->query('UPDATE posts SET likes=likes-1 WHERE id=:postid', array(
+                    ':postid' => $postId
+                ));
+			$db->query('DELETE FROM post_likes WHERE post_id=:postid AND user_id=:userid', array(':postid'=>$postId, ':userid'=>$userid));				
+                echo '{ "Success": "Post unliked successfully." }';
+                http_response_code(201);
+            }
+            else
+            {
+                echo '{ "Error": "Post could not be unliked because it is not liked." }';
+                http_response_code(400);
+                die();
+            }
+			break;
+			case false:
+        //check if the post is not already liked
+if(!$db->query('SELECT user_id FROM post_likes WHERE post_id=:postid AND user_id=:userid', array(':postid'=>$postId,':userid'=>$userid))){
+	//increment the count by one
+                $db->query('UPDATE posts SET likes=likes+1 WHERE id=:postid', array(
+                    ':postid' => $postId
+                ));
+				//"hard"-write into post_likes table
+			$db->query('INSERT INTO post_likes (user_id, post_id) VALUES (:userid, :postid)', array(':userid'=>$userid, ':postid'=>$postId));				
+                echo '{ "Success": "Post liked successfully." }';
+                http_response_code(201);
+            }
+            else
+            {
+                echo '{ "Error": "Post could not be liked because it is already liked." }';
+                http_response_code(400);
+                die();
+            }			
+			break;
+			}
+		}
+		else {
+                echo '{ "Error": "Token could not be authorized as a user!" }';
+                http_response_code(401);
+                die();
+		}
+    }	
+	
+    else if ($_GET['url'] == "unlikepost")
+    {
+        //get postbody
+        $postBody = file_get_contents("php://input");
+        $postBody = json_decode($postBody);
+        //assign values
+        $postId = strtolower($postBody->body);
+        $token = strtolower($postBody->token);
+        //get userid if it exists
+        $userid = user::isLoggedIn($token, $db);
+        //check if user is logged in
+        if ($userid)
+        {
+        //check if the post is not already liked
+if(!$db->query('SELECT user_id FROM post_likes WHERE post_id=:postid AND user_id=:userid', array(':postid'=>$postId,':userid'=>$userid))){
+                $db->query('UPDATE posts SET likes=likes-1 WHERE id=:postid', array(
+                    ':postid' => $postId
+                ));
+			$db->query('DELETE FROM post_likes WHERE post_id=:postid AND user_id=:userid', array(':postid'=>$postId, ':userid'=>$userid));				
+                echo '{ "Success": "Post unliked successfully." }';
+                http_response_code(201);
+            }
+            else
+            {
+                echo '{ "Error": "Post could not be unliked because it is not liked." }';
+                http_response_code(400);
+                die();
+            }
+
+        } else {
+                echo '{ "Error": "Token could not be authorized as a user!" }';
+                http_response_code(401);
+                die();
+		}
+    }		
 
     else if ($_GET['url'] == "register")
     {
