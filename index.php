@@ -4,6 +4,7 @@ require ('dbconf.php');
 $db = new db($domain, $table, $user, $pass);
 include ("./class.user.php");
 include ("./class.posts.php");
+include ("./class.passwordreset.php");
 
 header('Access-Control-Allow-Origin: *');
 header("Access-Control-Allow-Methods: HEAD, GET, POST, PUT, PATCH, DELETE, OPTIONS");
@@ -20,6 +21,29 @@ if ($method == "OPTIONS")
 
 if ($_SERVER['REQUEST_METHOD'] == "GET")
 {
+    
+    
+    if ($_GET['url'] == "resetEmail")
+    {
+
+        if (isset($_GET['email']))
+        {
+           Passwordreset::reset($_GET['email'], $db);
+        }
+        else
+        {
+            echo '{ Error: "Email not provided" }';
+            http_response_code(400);
+            die();
+        }
+        
+            echo '{ Error: "Malformed request" }';
+            http_response_code(400);
+                die();
+        }
+
+    
+    
     if ($_GET['url'] == "verifyToken")
     {
         //returns user id
@@ -57,10 +81,21 @@ if ($_SERVER['REQUEST_METHOD'] == "GET")
             http_response_code(400);
         }
     }
+    
+    
+    
+    
+
+    
+    
+    
 
     else if ($_GET['url'] == "auth")
     {
     }
+    
+    
+    
     else if ($_GET['url'] == "user")
     {
         if (isset($_GET['username']))
@@ -79,6 +114,17 @@ if ($_SERVER['REQUEST_METHOD'] == "GET")
                 die();
             }
         }
+        
+        if (isset($_GET['token']))
+        {
+
+            //get the username of the user from token
+            if($_GET['information'] == "username"){
+                User::getUsernameFromToken($_GET['token'], $db);
+            }
+        }
+        
+        
         if (isset($_GET['contact']))
         {
             if (isset($_GET['token']))
@@ -159,16 +205,16 @@ AND follower_id = ' . $user_id . ' OR posts.user_id = ' . $user_id . ' AND users
                     $response .= "[";
                     foreach ($feedoneposts as $post)
                     {
-						$comments = posts::countPostComments($post['id'], $db);	
-						$isLiked = posts::isLiked($post['id'], $user_id, $db);					
+                        $comments = posts::countPostComments($post['id'], $db);
+                        $isLiked = posts::isLiked($post['id'], $user_id, $db);
                         $response .= "{";
                         $response .= '"PostId": ' . $post['id'] . ",";
                         $response .= '"PostBody": "' . $post['body'] . "\",";
                         $response .= '"PostedBy": "' . $post['username'] . "\",";
                         $response .= '"PostedOn": ' . $post['posted_on'] . ",";
-						$response .= '"Comments": ' . $comments . ",";					
-                        $response .= '"Likes": ' . $post['likes'] . ",";		
-                        $response .= '"IsLiked": ' . $isLiked . "";						
+                        $response .= '"Comments": ' . $comments . ",";
+                        $response .= '"Likes": ' . $post['likes'] . ",";
+                        $response .= '"IsLiked": ' . $isLiked . "";
                         $response .= "},";
                     }
                     $response = substr($response, 0, strlen($response) - 1);
@@ -195,14 +241,14 @@ AND contacts.user_id = ' . $user_id . ' OR posts.user_id = ' . $user_id . ' AND 
                     $response .= "[";
                     foreach ($feedtwoposts as $post)
                     {
-						$comments = posts::countPostComments($post['id'], $db);
+                        $comments = posts::countPostComments($post['id'], $db);
                         $response .= "{";
                         $response .= '"PostId": ' . $post['id'] . ",";
                         $response .= '"PostBody": "' . $post['body'] . "\",";
                         $response .= '"PostedBy": "' . $post['username'] . "\",";
                         $response .= '"PostedOn": ' . $post['posted_on'] . ",";
-						$response .= '"Comments": ' . $comments . ",";
-                        $response .= '"Likes": ' . $post['likes'] . "";						
+                        $response .= '"Comments": ' . $comments . ",";
+                        $response .= '"Likes": ' . $post['likes'] . "";
                         $response .= "},";
                     }
                     $response = substr($response, 0, strlen($response) - 1);
@@ -585,10 +631,10 @@ else if ($_SERVER['REQUEST_METHOD'] == "POST")
                 echo '{ "Error": "Token could not be authorized as a user!" }';
                 http_response_code(401);
                 die();
-		}
+        }
 
     }
-	
+    
     else if ($_GET['url'] == "updatepostlike")
     {
         //get postbody
@@ -597,21 +643,21 @@ else if ($_SERVER['REQUEST_METHOD'] == "POST")
         //assign values
         $postId = strtolower($postBody->postId);
 
-		$isLiked = strtolower($postBody->isLiked);
+        $isLiked = strtolower($postBody->isLiked);
         $token = strtolower($postBody->token);
         //get userid if it exists
         $userid = user::isLoggedIn($token, $db);
         //check if user is logged in
         if ($userid)
         {
-			switch($isLiked){
-			case true:
+            switch($isLiked){
+            case true:
          //check if the post is liked
 if($db->query('SELECT user_id FROM post_likes WHERE post_id=:postid AND user_id=:userid', array(':postid'=>$postId,':userid'=>$userid))){
                 $db->query('UPDATE posts SET likes=likes-1 WHERE id=:postid', array(
                     ':postid' => $postId
                 ));
-			$db->query('DELETE FROM post_likes WHERE post_id=:postid AND user_id=:userid', array(':postid'=>$postId, ':userid'=>$userid));				
+            $db->query('DELETE FROM post_likes WHERE post_id=:postid AND user_id=:userid', array(':postid'=>$postId, ':userid'=>$userid));
                 echo '{ "Success": "Post unliked successfully." }';
                 http_response_code(201);
             }
@@ -621,16 +667,16 @@ if($db->query('SELECT user_id FROM post_likes WHERE post_id=:postid AND user_id=
                 http_response_code(400);
                 die();
             }
-			break;
-			case false:
+            break;
+            case false:
         //check if the post is not already liked
 if(!$db->query('SELECT user_id FROM post_likes WHERE post_id=:postid AND user_id=:userid', array(':postid'=>$postId,':userid'=>$userid))){
-	//increment the count by one
+    //increment the count by one
                 $db->query('UPDATE posts SET likes=likes+1 WHERE id=:postid', array(
                     ':postid' => $postId
                 ));
-				//"hard"-write into post_likes table
-			$db->query('INSERT INTO post_likes (user_id, post_id) VALUES (:userid, :postid)', array(':userid'=>$userid, ':postid'=>$postId));				
+                //"hard"-write into post_likes table
+            $db->query('INSERT INTO post_likes (user_id, post_id) VALUES (:userid, :postid)', array(':userid'=>$userid, ':postid'=>$postId));
                 echo '{ "Success": "Post liked successfully." }';
                 http_response_code(201);
             }
@@ -639,17 +685,17 @@ if(!$db->query('SELECT user_id FROM post_likes WHERE post_id=:postid AND user_id
                 echo '{ "Error": "Post could not be liked because it is already liked." }';
                 http_response_code(400);
                 die();
-            }			
-			break;
-			}
-		}
-		else {
+            }
+            break;
+            }
+        }
+        else {
                 echo '{ "Error": "Token could not be authorized as a user!" }';
                 http_response_code(401);
                 die();
-		}
-    }	
-	
+        }
+    }
+    
     else if ($_GET['url'] == "unlikepost")
     {
         //get postbody
@@ -668,7 +714,7 @@ if(!$db->query('SELECT user_id FROM post_likes WHERE post_id=:postid AND user_id
                 $db->query('UPDATE posts SET likes=likes-1 WHERE id=:postid', array(
                     ':postid' => $postId
                 ));
-			$db->query('DELETE FROM post_likes WHERE post_id=:postid AND user_id=:userid', array(':postid'=>$postId, ':userid'=>$userid));				
+            $db->query('DELETE FROM post_likes WHERE post_id=:postid AND user_id=:userid', array(':postid'=>$postId, ':userid'=>$userid));
                 echo '{ "Success": "Post unliked successfully." }';
                 http_response_code(201);
             }
@@ -683,8 +729,8 @@ if(!$db->query('SELECT user_id FROM post_likes WHERE post_id=:postid AND user_id
                 echo '{ "Error": "Token could not be authorized as a user!" }';
                 http_response_code(401);
                 die();
-		}
-    }		
+        }
+    }
 
     else if ($_GET['url'] == "register")
     {

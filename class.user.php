@@ -18,4 +18,44 @@ public static function isLoggedIn($token, $db)
 		} 
 	return false;	
 }
+    
+    public static function getUsernameFromToken($token, $db)
+    {
+        //get the uid and verify token exists at the same time
+        $uid = self::isLoggedIn($token, $db);
+        //continue inside this condition if uid is found
+        if($uid){
+            //attempt to get username from uid
+            $username = self::getUsernameFromUid($uid, $db);
+            //continue inside this condition if username is found
+            if($username){
+                echo '{ Username: "'.$username.'" }';
+                http_response_code(200);
+                die();
+            } else {
+                echo '{ Error: "Username does not exist" }';
+                http_response_code(400);
+                die();
+            }
+        } else {
+        echo '{ Error: "Token is not valid" }';
+        http_response_code(400);
+        die();
+    }
+        }
+    
+        public static function getUsernameFromUid($uid, $db)
+{
+            $username = $db->query('SELECT username FROM users WHERE id=:userid', array(
+                ':userid' => $uid
+            )) [0]['username'];
+                    //db check to see if the token is valid and also return id, either $userid returns the userid, or it returns false
+                //db check to see if the token is valid
+                if ($username) {
+                    //return user id
+                    return $username;
+                }
+            return false;
+        }
+        
 }
