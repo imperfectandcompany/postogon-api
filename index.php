@@ -106,6 +106,8 @@ if ($_SERVER['REQUEST_METHOD'] == "GET")
             )) [0]['username'])
             {
                 echo '{ Username: "True" }';
+                http_response_code(200);
+                die();
             }
             else
             {
@@ -117,7 +119,6 @@ if ($_SERVER['REQUEST_METHOD'] == "GET")
         
         if (isset($_GET['token']))
         {
-
             //get the username of the user from token
             if($_GET['information'] == "username"){
                 User::getUsernameFromToken($_GET['token'], $db);
@@ -171,8 +172,10 @@ if ($_SERVER['REQUEST_METHOD'] == "GET")
                 die();
             }
         }
-
     }
+    
+    
+    
     else if ($_GET['url'] == "posts")
     {
         if (isset($_GET['token']))
@@ -434,6 +437,21 @@ else if ($_SERVER['REQUEST_METHOD'] == "POST")
 
         }
     }
+                                               
+                                               
+                                               
+   if ($_GET['url'] == "changeusername")
+   {
+       $postBody = file_get_contents("php://input");
+       $postBody = json_decode($postBody);
+       $username = strtolower($postBody->username);
+       $token = strtolower($postBody->token);
+       User::changeUsernameFromToken($token, $username, $db);
+   }
+                                               
+                                               
+
+                                               
 
     if ($_GET['url'] == "token")
     {

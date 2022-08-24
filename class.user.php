@@ -29,20 +29,25 @@ public static function isLoggedIn($token, $db)
             $username = self::getUsernameFromUid($uid, $db);
             //continue inside this condition if username is found
             if($username){
+                header((isset($_SERVER['SERVER_PROTOCOL']) ? $_SERVER['SERVER_PROTOCOL'] : 'HTTP/1.0') . ' ' . 200 . ' ' . 'Username: '.$username.'');
                 echo '{ Username: "'.$username.'" }';
                 http_response_code(200);
                 die();
             } else {
+                header((isset($_SERVER['SERVER_PROTOCOL']) ? $_SERVER['SERVER_PROTOCOL'] : 'HTTP/1.0') . ' ' . 404 . ' ' . 'Username does not exist');
                 echo '{ Error: "Username does not exist" }';
-                http_response_code(400);
+                http_response_code(404);
                 die();
             }
         } else {
+            header((isset($_SERVER['SERVER_PROTOCOL']) ? $_SERVER['SERVER_PROTOCOL'] : 'HTTP/1.0') . ' ' . 401 . ' ' . 'Token is not valid');
         echo '{ Error: "Token is not valid" }';
-        http_response_code(400);
+        http_response_code(401);
         die();
     }
         }
+    
+
     
         public static function getUsernameFromUid($uid, $db)
 {
@@ -58,4 +63,51 @@ public static function isLoggedIn($token, $db)
             return false;
         }
         
+    public static function changeUsernameFromToken($token, $username, $db)
+{
+    //get the uid and verify token exists at the same time
+    $uid = self::isLoggedIn($token, $db);
+    if($uid){
+        
+        if(!self::doesUsernameExist($username, $db)){
+            $db->query('UPDATE users SET username=:username WHERE id=:userid', array(
+                ':userid' => $uid, ':username'=>$username
+            ));
+                header((isset($_SERVER['SERVER_PROTOCOL']) ? $_SERVER['SERVER_PROTOCOL'] : 'HTTP/1.0') . ' ' . 200 . ' ' . 'Username has been set!');
+                echo '{ Username: "'.$username.'" }';
+                http_response_code(200);
+                die();
+            } else {
+                header((isset($_SERVER['SERVER_PROTOCOL']) ? $_SERVER['SERVER_PROTOCOL'] : 'HTTP/1.0') . ' ' . 401 . ' ' . 'Username already taken!');
+            echo '{ Error: "Username already taken" }';
+            http_response_code(401);
+            die();
+            }
+        }
+    else {
+        header((isset($_SERVER['SERVER_PROTOCOL']) ? $_SERVER['SERVER_PROTOCOL'] : 'HTTP/1.0') . ' ' . 401 . ' ' . 'Token is not valid');
+    echo '{ Error: "Token is not valid" }';
+    http_response_code(401);
+    die();
+    }
 }
+    
+    
+    public static function doesUsernameExist($username, $db)
+    {
+        //check if user exists
+        if ($db->query('SELECT username FROM users WHERE username=:username', array(
+            ':username' => $username
+        )) [0]['username'])
+        {
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
+    
+    }
+    
+    
