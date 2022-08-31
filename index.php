@@ -40,7 +40,30 @@ if ($_SERVER['REQUEST_METHOD'] == "GET")
             echo '{ Error: "Malformed request" }';
             http_response_code(400);
                 die();
+    }
+
+    if ($_GET['url'] == "verifyPasswordToken")
+    {
+        if (isset($_GET['token']))
+        {
+            if (Passwordreset::isTokenValid($_GET['token'], $db))
+            {
+                echo '{ Success: Password reset token is accepted} ';
+                http_response_code(200);
+                die();
+            } else {
+                echo '{ Error: Password reset token could not be found} ';
+                http_response_code(404);
+                die();
+            }
         }
+        else
+        {
+            echo '{ Error: "Token not provided" }';
+            http_response_code(400);
+            die();
+        }
+    }
 
     
     
@@ -402,21 +425,28 @@ AND contacts.user_id = ' . $user_id . ' OR posts.user_id = ' . $user_id . ' AND 
                         return $text;
                     }
                     echo parse($response);
+                   http_response_code(200);
+                   die();
                 }
                 else
                 {
                     echo '{ Error: "Not a valid feed!" }';
+                   http_response_code(200);
+                   die();
                 }
             }
             else
             {
                 echo '{ Error: "Feed required!" }';
+               http_response_code(200);
+               die();
             }
         }
         else
         {
             echo '{ Error: "username required!" }';
-
+           http_response_code(200);
+           die();
         }
     }
 }
@@ -437,7 +467,71 @@ else if ($_SERVER['REQUEST_METHOD'] == "POST")
 
         }
     }
+                            
                                                
+       if ($_GET['url'] == "setNewPassword")
+       {
+                                               //If oldpassword is sent inside this receiving endpoint postbody then we will run the code necessary to change the password and assume user is logged in and in settings
+                                               //otherwise, we will assume that the user is in the reset password recovery flow and not require the old password.
+           $postBody = file_get_contents("php://input");
+           $postBody = json_decode($postBody);
+           $oldPassword = $postBody->oldpassword;
+           $newPassword = $postBody->newpassword;
+           $resetToken = strtolower($postBody->resettoken); //for recovery
+           $userToken = strtolower($postBody->usertoken); //for settings
+                                               //if user is in recovery
+            if($resetToken && !$oldPassword && !$userToken){
+                                               //check if user also provided a new password
+                                               if($newPassword){
+                                                   //check to ensure newpassword is filled in and not whitespace
+                                                   if(trim($newPassword)=='')
+                                                       {
+                                                       echo '{ Error: "New password cannot be left empty!" }';
+                                                       http_response_code(400);
+                                                       die();
+                                                       }
+                                                       else
+                                                       {
+                                                       return passwordreset::setNewPassword($resetToken, $newPassword, $db);
+                                                       }
+                                               } else {
+                                               echo '{ Error: "Malformed Request. New password was not provided in postbody!" }';
+                                               http_response_code(400);
+                                               die();
+                                               }
+                                               //if user is in settings
+                   } elseif($oldPassword && !$resetToken && $newPassword && $userToken) {
+                                               //check to see if oldpassword and newpassword are filled in values
+                                               if(trim($oldPassword)=='' || trim($newPassword)=='')
+                                               {
+                                               echo '{ Error: "Old password and new password cannot be left empty!" }';
+                                               http_response_code(400);
+                                               die();
+                                               }
+                                               //make sure they don't match
+                                               else if($oldPassword != $newPassword)
+                                               {
+                                               return user::changePassword($userToken, $oldPassword, $newPassword, $db);
+                                               //throw this error if both password match
+                                               } else {
+                                               echo '{ Error: "Old and new password cannot match!" }';
+                                               http_response_code(401);
+                                               die();
+                                               }
+                                        }
+                                             else {
+                                               echo '{ Error: "Malformed Request. Old or new password was not provided" }';
+                                               http_response_code(400);
+                                               die();
+
+                   }
+                                               
+                                               
+
+                    
+           //Passwordreset::setNewPassword($resetToken, $newpassword, $db);
+            }
+        
                                                
                                                
    if ($_GET['url'] == "changeusername")
