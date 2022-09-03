@@ -87,6 +87,33 @@ if ($_SERVER['REQUEST_METHOD'] == "GET")
             die();
         }
     }
+    
+    if ($_GET['url'] == "isUserVerified")
+    {
+        if (isset($_GET['username']))
+        {
+            if (User::getUserVerified($_GET['username'], $db))
+            {
+                header((isset($_SERVER['SERVER_PROTOCOL']) ? $_SERVER['SERVER_PROTOCOL'] : 'HTTP/1.0') . ' ' . 200 . ' ' . 'User is verified');
+                echo '{ Success: User is verified} ';
+                http_response_code(200);
+                die();
+            } else {
+                header((isset($_SERVER['SERVER_PROTOCOL']) ? $_SERVER['SERVER_PROTOCOL'] : 'HTTP/1.0') . ' ' . 401 . ' ' . 'User is not verified');
+                echo '{ Error: User is not verified } ';
+                http_response_code(401);
+                die();
+            }
+        }
+        else
+        {
+            header((isset($_SERVER['SERVER_PROTOCOL']) ? $_SERVER['SERVER_PROTOCOL'] : 'HTTP/1.0') . ' ' . 404 . ' ' . 'User not provided');
+            echo '{ Error: "Username not provided" }';
+            http_response_code(400);
+            die();
+        }
+    }
+
 
     
     

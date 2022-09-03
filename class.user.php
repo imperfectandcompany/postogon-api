@@ -25,7 +25,7 @@ public static function isLoggedIn($token, $db)
         //check to see if the username is set then using the given $id. else return false.
         if($db->query('SELECT admin FROM users WHERE id=:uid', array(':uid'=>$uid))[0]['admin'] == 1){
         return true;
-        }   
+        }
         else {
         return false;
         }
@@ -53,6 +53,22 @@ public static function isLoggedIn($token, $db)
         die();
     }
 }
+    
+    
+    
+    public static function getUserVerified($username, $db)
+    {
+        //check to see if the username is set then using the given $id. else return false.
+        if($db->query('SELECT verified FROM users WHERE username=:username', array(':username'=>$username))[0]['verified']){
+        //return verified result which should be 1
+        return $db->query('SELECT verified FROM users WHERE username=:username', array(':username'=>$username))[0]['verified'];
+        }
+        else {
+        return false;
+        }
+    }
+    
+    
     
     public static function getUsernameFromToken($token, $db)
     {
