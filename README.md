@@ -23,6 +23,13 @@ recovery (3)
 returns with the username of the user to confirm that the username is set (used to see if onboarding is finished or not)
 //CHECKS IF TOKEN IS VALID FIRST
 
+/isUserAdmin?token=${getToken()}
+returns with the true or false based on if the username owning provided token (if that exists) is admin or not.
+//CHECKS IF TOKEN IS VALID FIRST
+
+/isUserVerified?username={{$userName}}
+returns with true or false based on if username provided is verified within users table of the database or not.
+
 /user?username={{$randomUserName}}
 returns true or false depending if the username exists or not.
 //USED TO SEE IF USERNAME IS TAKEN WHEN SETTING INITIALLY IN ONBOARDING OR WHEN UPDATING WITHIN SETTINGS PAGE
