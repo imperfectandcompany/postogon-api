@@ -64,6 +64,29 @@ if ($_SERVER['REQUEST_METHOD'] == "GET")
             die();
         }
     }
+    
+    if ($_GET['url'] == "isUserAdmin")
+    {
+        if (isset($_GET['token']))
+        {
+            if (User::checkAdminStatus($_GET['token'], $db))
+            {
+                echo '{ Success: User is admin} ';
+                http_response_code(200);
+                die();
+            } else {
+                echo '{ Error: User is not admin } ';
+                http_response_code(404);
+                die();
+            }
+        }
+        else
+        {
+            echo '{ Error: "Token not provided" }';
+            http_response_code(400);
+            die();
+        }
+    }
 
     
     

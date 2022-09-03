@@ -19,6 +19,41 @@ public static function isLoggedIn($token, $db)
 	return false;	
 }
     
+    
+    public static function checkAdminFromUid($uid, $db)
+    {
+        //check to see if the username is set then using the given $id. else return false.
+        if($db->query('SELECT admin FROM users WHERE id=:uid', array(':uid'=>$uid))[0]['admin'] == 1){
+        return true;
+        }   
+        else {
+        return false;
+        }
+    }
+    
+    
+    public static function checkAdminStatus($token, $db)
+    {
+        //get the uid and verify token exists at the same time
+        $uid = self::isLoggedIn($token, $db);
+        //continue inside this condition if uid is found
+        if($uid){
+            //check if user is admin or not
+            $isAdmin = self::checkAdminFromUid($uid, $db);
+            //continue inside this condition if username is found
+            if($isAdmin){
+                return true;
+            } else {
+                return false;
+            }
+        } else {
+            header((isset($_SERVER['SERVER_PROTOCOL']) ? $_SERVER['SERVER_PROTOCOL'] : 'HTTP/1.0') . ' ' . 401 . ' ' . 'Token is not valid');
+        echo '{ Error: "Token is not valid" }';
+        http_response_code(401);
+        die();
+    }
+}
+    
     public static function getUsernameFromToken($token, $db)
     {
         //get the uid and verify token exists at the same time
