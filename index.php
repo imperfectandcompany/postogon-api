@@ -190,6 +190,36 @@ if ($_SERVER['REQUEST_METHOD'] == "GET")
             }
         }
         
+        
+        if (isset($_GET['userIdFromUsername']))
+        {
+            if($_GET['userIdFromUsername']){
+                $userId = $db->query('SELECT id FROM users WHERE username=:username', array(
+                    ':username' => $_GET['userIdFromUsername']
+                )) [0]['id'];
+                
+                
+                //check if user exists
+                if ($userId)
+                {
+                    echo '{ userId: "'.$userId.'" }';
+                    http_response_code(200);
+                    die();
+                }
+                else
+                {
+                    echo '{ Error: "User does not exist" }';
+                    http_response_code(401);
+                    die();
+                }
+            } else {
+                echo '{ Error: "userIdFromUsername value was not provided" }';
+                http_response_code(404);
+                die();
+            }
+            
+        }
+        
         if (isset($_GET['token']))
         {
             //get the username of the user from token
