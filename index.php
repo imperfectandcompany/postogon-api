@@ -4,6 +4,7 @@ require ('dbconf.php');
 $db = new db($domain, $table, $user, $pass);
 include ("./class.user.php");
 include ("./class.posts.php");
+include ("./class.comments.php");
 include ("./class.passwordreset.php");
 
 header('Access-Control-Allow-Origin: *');
@@ -278,6 +279,47 @@ if ($_SERVER['REQUEST_METHOD'] == "GET")
     }
     
     
+    else if ($_GET['url'] == "comments")
+    {
+        if (isset($_GET['token']))
+        {
+            $token = $_GET['token'];
+            //check if token exists
+            if(User::isloggedIn($token, $db)){
+                if(isset($_GET['id'])){
+                    $postId = $_GET['id'];
+                    //get private post id comments
+                    $result = Comments::fetch_Comments($postId, "DESC", $db);
+                    echo $result;
+                    http_response_code(200);
+                    die();
+                } else {
+                    echo '{ Error: "id (for post) is required!" }';
+                    http_response_code(400);
+                    die();
+                }
+            } else {
+                echo '{ Error: "Token is invalid!" }';
+                http_response_code(400);
+                die();
+            }
+        }
+        //since token is not provided, see if id still exists...
+        else if (isset($_GET['id']))
+        {
+            $postId = $_GET['id'];
+            //get private post id comments
+            $result = Comments::fetch_Comments($postId, "DESC", $db);
+            echo $result;
+            http_response_code(200);
+            die();
+        }   else {
+            echo '{ Error: "You must provide a token with post ID for Private post or post ID without token for public post comments" }';
+            http_response_code(400);
+            die();
+        }
+    }
+    
     
     else if ($_GET['url'] == "posts")
     {
@@ -376,9 +418,50 @@ AND contacts.user_id = ' . $user_id . ' OR posts.user_id = ' . $user_id . ' AND 
                     echo '{ Error: "Not a valid feed!" }';
                 }
             }
-            else
-            {
-                echo '{ Error: "Feed required!" }';
+           else if (isset($_GET['id'])){
+           if ($db->query('SELECT * FROM posts WHERE id=:id AND to_whom = 2', array(
+               ':id' => $_GET['id']
+           )))
+           {
+               $singlePost = $db->query('SELECT * FROM posts WHERE id=:id AND to_whom = 2', array(
+                   ':id' => $_GET['id']
+               ));
+               $response .= "[";
+               foreach ($singlePost as $post)
+               {
+                   $response .= "{";
+                   $response .= '"PostId": ' . $post['id'] . ",";
+                   $response .= '"PostBody": "' . $post['body'] . "\",";
+                   //get username
+                   $username = $db->query('SELECT username FROM users WHERE id=:id', array(
+                       ':id' => $post['user_id']
+                   )) [0]['username'];
+                   $response .= '"PostedBy": "' . $username . "\",";
+                   $response .= '"Likes": ' . $post['likes'] . "";
+                   $response .= "},";
+               }
+               $response = substr($response, 0, strlen($response) - 1);
+               $response .= "]";
+               function parse($text)
+               {
+                   // Damn pesky carriage returns...
+                   $text = str_replace("\r\n", "\n", $text);
+                   $text = str_replace("\r", "\n", $text);
+
+                   // JSON requires new line characters be escaped
+                   $text = str_replace("\n", "\\n", $text);
+                   return $text;
+               }
+               echo parse($response);
+           }
+           else
+           {
+               echo '{ Error: "Private post does not exist!" }';
+               http_response_code(400);
+               die();
+           }
+           } else {
+                echo '{ Error: "Feed required or private post ID required!" }';
             }
         }
         else if (isset($_GET['id']))
@@ -623,7 +706,7 @@ else if ($_SERVER['REQUEST_METHOD'] == "POST")
        User::changeUsernameFromToken($token, $username, $db);
    }
                                                
-                                               
+                                    
 
                                                
 
