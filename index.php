@@ -325,7 +325,7 @@ if ($_SERVER['REQUEST_METHOD'] == "GET")
     {
         if (isset($_GET['token']))
         {
-            $token = $_COOKIE['POSTOGON_ID'];
+            $token = $_GET['token'];
             //check if token exists and grab user's id
             if ($user_id = $db->query('SELECT user_id FROM login_tokens WHERE token=:token', array(
                 ':token' => sha1($_GET['token'])
@@ -345,11 +345,8 @@ if ($_SERVER['REQUEST_METHOD'] == "GET")
             {
                 if ($_GET['feed'] == "public")
                 {
-                    $feedoneposts = $db->query('SELECT DISTINCT posts.body, posts.user_id, users.`status`, posts.id, posts.likes, posts.posted_on, users.`username` FROM users, posts , followers
-WHERE posts.user_id = followers.user_id
-AND users.id = posts.user_id
-AND to_whom = 1
-AND follower_id = ' . $user_id . ' OR posts.user_id = ' . $user_id . ' AND users.id = posts.user_id AND to_whom = 1 ORDER BY posts.posted_on ' . $order);
+                    $feedoneposts = $db->query('SELECT DISTINCT posts.body, posts.user_id, users.`status`, posts.id, posts.likes, posts.posted_on, users.`username` FROM users, posts , followers WHERE posts.user_id = followers.user_id AND users.id = posts.user_id AND to_whom = 1 AND follower_id = ' . $user_id . ' OR posts.user_id = ' . $user_id . ' AND users.id = posts.user_id AND to_whom = 1 ORDER BY posts.posted_on DESC');
+                    $response="";
                     $response .= "[";
                     foreach ($feedoneposts as $post)
                     {
@@ -426,6 +423,7 @@ AND contacts.user_id = ' . $user_id . ' OR posts.user_id = ' . $user_id . ' AND 
                $singlePost = $db->query('SELECT * FROM posts WHERE id=:id AND to_whom = 2', array(
                    ':id' => $_GET['id']
                ));
+                                               $response="";
                $response .= "[";
                foreach ($singlePost as $post)
                {
@@ -473,6 +471,7 @@ AND contacts.user_id = ' . $user_id . ' OR posts.user_id = ' . $user_id . ' AND 
                 $singlePost = $db->query('SELECT * FROM posts WHERE id=:id AND to_whom = 1', array(
                     ':id' => $_GET['id']
                 ));
+                                               $response="";
                 $response .= "[";
                 foreach ($singlePost as $post)
                 {
@@ -869,6 +868,43 @@ else if ($_SERVER['REQUEST_METHOD'] == "POST")
             }
         }
     }
+                                               
+   else if ($_GET['url'] == "comments")
+   {
+                                               
+                                               
+       //get postbody
+       $postBody = file_get_contents("php://input");
+       $postBody = json_decode($postBody);
+       //assign values
+       $commentBody = $postBody->commentBody;
+       $token = strtolower($postBody->token);
+       $postId = strtolower($postBody->postId);
+       //check if token exists
+       if (isset($token))
+       {
+   //check if token is valid
+        $userId = User::isloggedIn($token, $db);
+           if($userId){
+               if(isset($postId)){
+                   //create comment
+                   Comments::createComment($userId, $commentBody, $postId, $db);
+               echo '{ "Success": "Comment created successfully" }';
+               http_response_code(201);
+                   die();
+               } else {
+                   echo '{ Error: "id (for comment) is required!" }';
+                   http_response_code(400);
+                   die();
+               }
+           } else {
+               echo '{ Error: "Token is invalid!" }';
+               http_response_code(400);
+               die();
+           }
+       }
+    }
+                                               
 
     else if ($_GET['url'] == "post")
     {
